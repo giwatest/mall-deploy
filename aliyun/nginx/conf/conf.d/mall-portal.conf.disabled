@@ -1,0 +1,75 @@
+# 前台商城系统配置 - HTTP版本
+server {
+    listen 80;
+    server_name your-domain.com www.your-domain.com localhost;
+    
+    # 限流
+    # limit_req zone=portal burst=50 nodelay;
+
+    # 静态资源缓存
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Vary Accept-Encoding;
+        gzip_static on;
+    }
+
+    # API代理
+    location /api/ {
+        proxy_pass http://mall-portal;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 超时设置
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+        
+        # 缓冲设置
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
+        proxy_busy_buffers_size 8k;
+    }
+
+    # 搜索服务代理
+    location /search/ {
+        proxy_pass http://mall-search;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 超时设置
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+    }
+
+    # 根路径
+    location / {
+        try_files $uri $uri/ @fallback;
+    }
+
+    # 回退到API
+    location @fallback {
+        proxy_pass http://mall-portal;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 健康检查
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+
+    # 日志配置
+    access_log /var/log/nginx/portal.access.log;
+    error_log /var/log/nginx/portal.error.log;
+}

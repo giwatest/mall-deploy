@@ -1,0 +1,272 @@
+# Mall应用生产环境配置模板
+# 请根据实际情况修改相关配置
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  tomcat:
+    uri-encoding: UTF-8
+    max-threads: 200
+    min-spare-threads: 10
+    max-connections: 8192
+    accept-count: 100
+    connection-timeout: 20000
+
+spring:
+  application:
+    name: mall-application
+  
+  # 数据源配置
+  datasource:
+    url: jdbc:mysql://mall-mysql:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:mall}
+    password: ${MYSQL_PASSWORD:Mall@2024}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      max-wait: 60000
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      validation-query: SELECT 1 FROM DUAL
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      pool-prepared-statements: true
+      max-pool-prepared-statement-per-connection-size: 20
+      filters: stat,wall,slf4j
+      connection-properties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=5000
+      web-stat-filter:
+        enabled: true
+        url-pattern: /*
+        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
+      stat-view-servlet:
+        enabled: true
+        url-pattern: /druid/*
+        reset-enable: false
+        login-username: admin
+        login-password: ${DRUID_PASSWORD:admin123}
+        allow: 127.0.0.1
+  
+  # Redis配置
+  redis:
+    host: mall-redis
+    port: 6379
+    password: ${REDIS_PASSWORD:Mall@2024}
+    database: 0
+    timeout: 3000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-wait: -1ms
+        max-idle: 8
+        min-idle: 0
+  
+  # MongoDB配置（如果使用）
+  data:
+    mongodb:
+      host: mall-mongodb
+      port: 27017
+      database: mall
+      username: ${MONGO_INITDB_ROOT_USERNAME:mall}
+      password: ${MONGO_INITDB_ROOT_PASSWORD:Mall@2024}
+      authentication-database: admin
+  
+  # Elasticsearch配置
+  elasticsearch:
+    rest:
+      uris: http://mall-elasticsearch:9200
+      connection-timeout: 1000ms
+      read-timeout: 30000ms
+  
+  # RabbitMQ配置
+  rabbitmq:
+    host: mall-rabbitmq
+    port: 5672
+    username: ${RABBITMQ_DEFAULT_USER:mall}
+    password: ${RABBITMQ_DEFAULT_PASS:Mall@2024}
+    virtual-host: /
+    connection-timeout: 15000
+    publisher-confirms: true
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        concurrency: 5
+        max-concurrency: 10
+        retry:
+          enabled: true
+          initial-interval: 1000ms
+          max-attempts: 3
+          max-interval: 10000ms
+          multiplier: 1.0
+
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml,classpath*:com/**/mapper/*.xml
+  type-aliases-package: com.macro.mall.model
+  configuration:
+    map-underscore-to-camel-case: true
+    default-fetch-size: 100
+    default-statement-timeout: 30
+
+# 分页插件配置
+pagehelper:
+  helper-dialect: mysql
+  reasonable: true
+  support-methods-arguments: true
+  params: count=countSql
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.macro.mall: INFO
+    org.springframework.security: WARN
+    org.springframework.web: WARN
+    org.mybatis: WARN
+    com.alibaba.druid: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+  file:
+    name: /app/logs/application.log
+    max-size: 100MB
+    max-history: 30
+    total-size-cap: 1GB
+
+# Actuator监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: always
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      sla:
+        http.server.requests: 50ms,100ms,200ms,300ms,500ms,1s
+
+# JWT配置
+jwt:
+  tokenHeader: Authorization
+  secret: ${JWT_SECRET:mySecretKey}
+  expiration: 604800
+  tokenHead: Bearer
+
+# 阿里云OSS配置
+aliyun:
+  oss:
+    endpoint: ${ALIYUN_OSS_ENDPOINT:oss-cn-hangzhou.aliyuncs.com}
+    accessKeyId: ${ALIYUN_OSS_ACCESS_KEY_ID:}
+    accessKeySecret: ${ALIYUN_OSS_ACCESS_KEY_SECRET:}
+    bucketName: ${ALIYUN_OSS_BUCKET_NAME:mall}
+    policy:
+      expire: 300
+    maxSize: 10
+    callback: ${ALIYUN_OSS_CALLBACK:}
+    dir:
+      prefix: mall/images/
+
+# MinIO配置（备选方案）
+minio:
+  endpoint: http://minio:9000
+  accessKey: ${MINIO_ACCESS_KEY:minioadmin}
+  secretKey: ${MINIO_SECRET_KEY:minioadmin}
+  bucketName: ${MINIO_BUCKET_NAME:mall}
+
+# Swagger配置
+swagger:
+  enabled: false  # 生产环境关闭Swagger
+  title: Mall API Documentation
+  description: Mall项目API文档
+  version: 1.0
+  contact:
+    name: Mall Team
+    email: team@mall.com
+
+# 安全配置
+security:
+  ignored:
+    urls:
+      - /actuator/health
+      - /actuator/info
+      - /favicon.ico
+      - /error
+
+# 自定义配置
+mall:
+  # 跨域配置
+  cors:
+    allowed-origins: 
+      - https://${DOMAIN_NAME:localhost}
+      - https://${ADMIN_DOMAIN:admin.localhost}
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
+    max-age: 3600
+  
+  # 限流配置
+  rate-limit:
+    enabled: true
+    default-limit: 100
+    default-period: 60
+  
+  # 缓存配置
+  cache:
+    redis:
+      default-expiration: 3600
+      topic: mall:cache
+  
+  # 文件上传配置
+  upload:
+    max-file-size: 10MB
+    max-request-size: 100MB
+    allowed-extensions: jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx
+  
+  # 邮件配置
+  mail:
+    host: ${MAIL_HOST:smtp.qq.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+  
+  # 短信配置
+  sms:
+    aliyun:
+      access-key-id: ${SMS_ACCESS_KEY_ID:}
+      access-key-secret: ${SMS_ACCESS_KEY_SECRET:}
+      sign-name: ${SMS_SIGN_NAME:商城}
+      template-code: ${SMS_TEMPLATE_CODE:SMS_123456789}
+
+# 线程池配置
+thread-pool:
+  core-pool-size: 10
+  max-pool-size: 50
+  queue-capacity: 200
+  keep-alive-seconds: 60
+  thread-name-prefix: mall-async-

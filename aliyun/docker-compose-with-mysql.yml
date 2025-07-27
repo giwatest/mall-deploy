@@ -1,0 +1,183 @@
+# Mall项目本地MySQL部署配置
+# 包含本地MySQL容器以解决数据库连接问题
+
+version: '3.8'
+
+services:
+  # MySQL数据库
+  mall-mysql:
+    image: mysql:8.0
+    container_name: mall-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=Mall@2024
+      - MYSQL_DATABASE=mall
+      - MYSQL_USER=mall
+      - MYSQL_PASSWORD=Mall@2024
+      - TZ=Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - ${DATA_PATH}/mysql/data:/var/lib/mysql
+      - ${DATA_PATH}/mysql/logs:/var/log/mysql
+      - ${DATA_PATH}/mysql/conf:/etc/mysql/conf.d
+      - /Users/liubingna/nana/project/mall/document/sql:/docker-entrypoint-initdb.d
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - mall-network
+    command: [
+      '--character-set-server=utf8mb4',
+      '--collation-server=utf8mb4_unicode_ci',
+      '--default-time-zone=+8:00',
+      '--lower-case-table-names=1'
+    ]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pMall@2024"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Mall管理后台
+  mall-admin:
+    image: mall/mall-admin:${APP_VERSION:-1.0-SNAPSHOT}
+    container_name: mall-admin
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - TZ=Asia/Shanghai
+      # 本地MySQL配置
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mall-mysql:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=mall
+      - SPRING_DATASOURCE_PASSWORD=Mall@2024
+      # 本地Redis配置
+      - SPRING_REDIS_HOST=mall-redis
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PASSWORD=
+      - SPRING_REDIS_DATABASE=0
+      # 本地MinIO配置（使用本地文件系统模拟）
+      - MINIO_ENDPOINT=http://192.168.3.101:9090
+      - MINIO_BUCKETNAME=mall
+      - MINIO_ACCESSKEY=minioadmin
+      - MINIO_SECRETKEY=minioadmin
+      # Logstash配置
+      - LOGSTASH_HOST=localhost
+      - LOGSTASH_ENABLEINNERLOG=false
+      # JVM配置
+      - JAVA_OPTS=-Xms512m -Xmx1024m -XX:+UseG1GC
+    ports:
+      - "8080:8080"
+    volumes:
+      - ${DATA_PATH}/logs/mall-admin:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - mall-network
+    depends_on:
+      mall-mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # Redis缓存
+  mall-redis:
+    image: redis:7-alpine
+    container_name: mall-redis
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - "6379:6379"
+    volumes:
+      - ${DATA_PATH}/redis/data:/data
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - mall-network
+    command: redis-server
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MinIO对象存储
+  mall-minio:
+    image: minio/minio
+    container_name: mall-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9090:9000"
+      - "9001:9001"
+    volumes:
+      - ${DATA_PATH}/minio/data:/data
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+      - TZ=Asia/Shanghai
+    networks:
+      - mall-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # 前端管理界面
+  mall-admin-web:
+    build:
+      context: ../../mall-admin-web
+      dockerfile: Dockerfile
+    image: mall/mall-admin-web:${APP_VERSION:-1.0-SNAPSHOT}
+    container_name: mall-admin-web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ${DATA_PATH}/nginx/logs:/var/log/nginx
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - mall-network
+    depends_on:
+      - mall-admin
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx反向代理（备用）
+  mall-nginx:
+    image: mall/mall-nginx:${APP_VERSION:-1.0-SNAPSHOT}
+    container_name: mall-nginx
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+      - "443:443"
+    volumes:
+      - ${DATA_PATH}/nginx/logs:/var/log/nginx
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - mall-network
+    depends_on:
+      - mall-admin
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - backup
+
+networks:
+  mall-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:

@@ -1,0 +1,147 @@
+version: '3.8'
+
+services:
+  # MySQL数据库
+  mysql:
+    image: mysql:5.7
+    container_name: mall-mysql
+    restart: always
+    command: |
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+      --max_connections=1000
+      --innodb_buffer_pool_size=512M
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ${DATA_PATH}/mysql/data:/var/lib/mysql
+      - ${DATA_PATH}/mysql/conf:/etc/mysql/conf.d
+      - ${DATA_PATH}/mysql/logs:/var/log/mysql
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - mall-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: mall-redis
+    restart: always
+    command: |
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - ${DATA_PATH}/redis/data:/data
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - mall-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Elasticsearch搜索引擎
+  elasticsearch:
+    image: elasticsearch:7.17.3
+    container_name: mall-elasticsearch
+    restart: always
+    environment:
+      - cluster.name=mall-es-cluster
+      - node.name=mall-es-node
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=${ES_JAVA_OPTS}"
+      - xpack.security.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - ${DATA_PATH}/elasticsearch/data:/usr/share/elasticsearch/data
+      - ${DATA_PATH}/elasticsearch/plugins:/usr/share/elasticsearch/plugins
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - mall-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # RabbitMQ消息队列
+  rabbitmq:
+    image: rabbitmq:3.9.11-management-alpine
+    container_name: mall-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      TZ: ${TZ}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - ${DATA_PATH}/rabbitmq/data:/var/lib/rabbitmq
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - mall-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # MongoDB文档数据库
+  mongodb:
+    image: mongo:4.4
+    container_name: mall-mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "27017:27017"
+    volumes:
+      - ${DATA_PATH}/mongodb/data:/data/db
+      - ${DATA_PATH}/mongodb/logs:/var/log/mongodb
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - mall-network
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks:
+  mall-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${NETWORK_SUBNET}
+
+volumes:
+  mysql-data:
+  redis-data:
+  elasticsearch-data:
+  rabbitmq-data:
+  mongodb-data:
