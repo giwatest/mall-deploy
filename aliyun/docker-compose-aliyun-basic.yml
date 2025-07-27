@@ -7,7 +7,7 @@ version: '3.8'
 services:
   # Mall管理后台
   mall-admin:
-    image: mall/mall-admin:${APP_VERSION:-1.0-SNAPSHOT}
+    image: registry.cn-hangzhou.aliyuncs.com/mall/mall-admin:${APP_VERSION:-1.0-SNAPSHOT}
     container_name: mall-admin
     restart: unless-stopped
     environment:
@@ -53,7 +53,7 @@ services:
 
   # Mall前台门户
   mall-portal:
-    image: mall/mall-portal:${APP_VERSION:-1.0-SNAPSHOT}
+    image: registry.cn-hangzhou.aliyuncs.com/mall/mall-portal:${APP_VERSION:-1.0-SNAPSHOT}
     container_name: mall-portal
     restart: unless-stopped
     environment:
@@ -113,7 +113,7 @@ services:
 
   # Mall搜索服务
   mall-search:
-    image: mall/mall-search:${APP_VERSION:-1.0-SNAPSHOT}
+    image: registry.cn-hangzhou.aliyuncs.com/mall/mall-search:${APP_VERSION:-1.0-SNAPSHOT}
     container_name: mall-search
     restart: unless-stopped
     environment:

@@ -74,7 +74,7 @@ build_module() {
     
     # 构建Docker镜像
     log_info "正在构建 $module Docker镜像..."
-    docker build -t "mall/$module:1.0-SNAPSHOT" .
+    docker build -t "registry.cn-hangzhou.aliyuncs.com/mall/$module:1.0-SNAPSHOT" .
     
     if [ $? -eq 0 ]; then
         log_success "$module 镜像构建成功"
@@ -138,7 +138,7 @@ push_images() {
     log_info "开始推送镜像到 $registry..."
     
     for module in mall-admin mall-portal mall-search; do
-        local local_image="mall/$module:1.0-SNAPSHOT"
+        local local_image="registry.cn-hangzhou.aliyuncs.com/mall/$module:1.0-SNAPSHOT"
         local remote_image="$registry/mall/$module:1.0-SNAPSHOT"
         
         log_info "推送 $module 镜像..."
