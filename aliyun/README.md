@@ -2,9 +2,30 @@
 
 本指南将帮助您将mall项目完整部署到阿里云上，使用Docker容器化技术。
 
-## 部署架构
+## 项目架构
 
-### 服务组件
+### 整体仓库架构
+
+Mall项目采用微服务架构，拆分为多个独立的Git仓库进行管理：
+
+#### 主仓库
+- **mall** (`giwatest/mall`): 主项目仓库，包含项目文档、配置文件和整体架构说明
+
+#### 后端服务仓库
+- **mall-admin** (`giwatest/mall-admin`): 后台管理系统服务
+- **mall-portal-service** (`giwatest/mall-portal-service`): 前台门户服务
+- **mall-search-service** (`giwatest/mall-search-service`): 商品搜索服务
+- **mall-security** (`giwatest/mall-security`): 安全认证模块
+- **mall-mbg** (`giwatest/mall-mbg`): MyBatis代码生成器
+
+#### 前端项目仓库
+- **mall-admin-web** (`giwatest/mall-admin-web`): 后台管理前端 (Vue.js)
+- **mall-app-web** (`giwatest/mall-app-web`): 移动端应用 (uni-app)
+
+#### 部署配置仓库
+- **mall-deploy** (`giwatest/mall-deploy`): 部署配置和脚本
+
+### 服务组件部署架构
 - **mall-admin**: 后台管理系统 (端口: 8080)
 - **mall-portal**: 前台商城系统 (端口: 8085)
 - **mall-search**: 商品搜索服务 (端口: 8081)
@@ -14,6 +35,59 @@
 - **RabbitMQ**: 消息队列 (端口: 5672, 15672)
 - **MongoDB**: NoSQL数据库 (端口: 27017)
 - **Nginx**: 反向代理和负载均衡 (端口: 80, 443)
+
+### 仓库依赖关系
+```
+mall (主仓库)
+├── mall-admin (后台服务)
+│   ├── 依赖: mall-security, mall-mbg
+│   └── 前端: mall-admin-web
+├── mall-portal-service (门户服务)
+│   ├── 依赖: mall-security, mall-mbg
+│   └── 前端: mall-app-web
+├── mall-search-service (搜索服务)
+│   └── 依赖: mall-mbg
+└── mall-deploy (部署配置)
+    └── 部署所有服务
+```
+
+### 开发和部署流程
+
+#### 1. 开发环境搭建
+```bash
+# 克隆所需的仓库
+git clone git@github.com:giwatest/mall-admin.git
+git clone git@github.com:giwatest/mall-portal-service.git
+git clone git@github.com:giwatest/mall-search-service.git
+git clone git@github.com:giwatest/mall-security.git
+git clone git@github.com:giwatest/mall-mbg.git
+git clone git@github.com:giwatest/mall-admin-web.git
+git clone git@github.com:giwatest/mall-app-web.git
+git clone git@github.com:giwatest/mall-deploy.git
+```
+
+#### 2. 构建顺序
+```bash
+# 1. 首先构建基础模块
+cd mall-mbg && mvn clean install
+cd ../mall-security && mvn clean install
+
+# 2. 构建业务服务
+cd ../mall-admin && mvn clean package
+cd ../mall-portal-service && mvn clean package
+cd ../mall-search-service && mvn clean package
+
+# 3. 构建前端项目
+cd ../mall-admin-web && npm install && npm run build
+cd ../mall-app-web && npm install && npm run build:h5
+```
+
+#### 3. 部署流程
+```bash
+# 使用部署仓库进行容器化部署
+cd mall-deploy/aliyun
+# 按照下面的部署步骤执行
+```
 
 ## 部署前准备
 
